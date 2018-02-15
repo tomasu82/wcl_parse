@@ -39,11 +39,7 @@
 
 (defn get_top_ranks
   [report api_key]
-  (let [fight_info (-> (client/get (get_fight_url report api_key))
-                       :body
-                       (json/read-str :key-fn keyword)
-                       :fights
-                       kills)]
+  (let [fight_info (get_fight_info report api_key)]
     (reduce
      #(let [curr_fight %2
             dmg_report (get_dmg_report report
@@ -76,25 +72,33 @@
                        kills)]
     fight_info
     ))
-(def test_report
-  (get_fight_url (first reports) api_key ))
+(defn get_fight_info
+  [report api_key]
+  (-> (client/get (get_fight_url report api_key))
+      :body
+      (json/read-str :key-fn keyword)
+      :fights
+      kills))
 
-(def report
-  (client/get test_report))
-
-
-(def input_json (json/read-str input :key-fn keyword))
-
-; names with dmg values parsed out
-(def names
-  (map #(hash-map :name (:name %1) :total (:total %1)) (-> input_json first val)))
-
-(def sorted_names
- (sort-by :total > names))
-
-(def fight_length
-  (:totalTime input_json))
 
 (defn dps [total_dmg length]
   (* 1000 (/ total_dmg length)))
-q
+
+
+(def all_ranks
+  (map
+   #(get_top_ranks %1 api_key)
+   reports))
+(def tops
+  (flatten all_ranks))
+
+(def top_counts
+  (reduce
+   #(assoc
+     %1
+    (keyword %2) (inc ((keyword %2) %1 0)))
+   {}
+   tops))
+
+(def sorted_tops
+  (reverse (sort-by val top_counts)))
