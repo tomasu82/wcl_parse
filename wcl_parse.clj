@@ -37,6 +37,45 @@
   (filter #(= (:kill %1) true)
           report))
 
+(defn download_fights
+  [report api_key]
+  (let [fight_info_json (-> (client/get (get_fight_url report api_key))
+                            :body)
+        fight_info (-> fight_info_json
+                       (json/read-str :key-fn keyword)
+                       :fights
+                       kills)]
+    (spit (str "/home/thomas/development/wcl_parse/parses/fight_" report ".json")
+          fight_info_json)
+    (map
+     #(let [curr_fight %1]
+        (spit (str "/home/thomas/development/wcl_parse/parses/damage_"
+                   report "_" (str/replace (:name curr_fight) #" " "_") ".json")
+              (-> (client/get (get_damage_report_url
+                               report
+                               api_key
+                               (:start_time curr_fight)
+                               (:end_time curr_fight)))
+                  :body)))
+     fight_info)
+    ))
+
+(def test_fight
+  (-> (slurp "/home/thomas/development/wcl_parse/parses/fight_27bTvtVKcrGNYqpJ.json")
+      (json/read-str :key-fn keyword)
+      :fights
+      kills))
+
+
+  (def report "27bTvtVKcrGNYqpJ" )
+
+
+
+(def downloaded_fights
+  (map
+   #(download_fights %1 api_key)
+   reports))
+
 (defn get_top_ranks
   [report api_key]
   (let [fight_info (get_fight_info report api_key)]
@@ -83,6 +122,7 @@
 
 (defn dps [total_dmg length]
   (* 1000 (/ total_dmg length)))
+
 
 
 (def all_ranks
